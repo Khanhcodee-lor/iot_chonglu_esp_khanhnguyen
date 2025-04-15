@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ESP32 Smart Monitoring</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/acset/css.css" />
+  </head>
+  <body>
+    <!-- Authentication Container -->
+    <div class="auth-container" id="authContainer">
+      <div class="auth-box">
+        <!-- Login Form -->
+        <div id="loginForm">
+          <h2 class="auth-title">Welcome Back</h2>
+          <p class="auth-subtitle">Sign in to access your control panel</p>
+
+          <div class="auth-error" id="loginError"></div>
+
+          <form class="auth-form" id="loginFormElement">
+            <div class="form-group">
+              <label for="loginEmail">Email</label>
+              <input
+                type="text"
+                id="loginEmail"
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="loginPassword">Password</label>
+              <input
+                type="password"
+                id="loginPassword"
+                placeholder="Enter your password"
+                required
+              />
+            </div>
+
+            <div class="auth-actions">
+              <button type="submit" class="btn">
+                <i class="fas fa-sign-in-alt"></i> Sign In
+              </button>
+            </div>
+          </form>
+
+          <div class="auth-toggle">
+            Don't have an account? <a id="showRegister">Register</a>
+          </div>
+        </div>
+
+        <!-- Register Form -->
+        <div id="registerForm" class="hidden">
+          <h2 class="auth-title">Create Account</h2>
+          <p class="auth-subtitle">Set up your new control panel account</p>
+
+          <div class="auth-error" id="registerError"></div>
+
+          <form class="auth-form" id="registerFormElement">
+            <div class="form-group">
+              <label for="registerName">Full Name</label>
+              <input
+                type="text"
+                id="registerName"
+                placeholder="Enter your full name"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="registerEmail">Email</label>
+              <input
+                type="text"
+                id="registerEmail"
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="registerPassword">Password</label>
+              <input
+                type="password"
+                id="registerPassword"
+                placeholder="Create a password"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="registerConfirmPassword">Confirm Password</label>
+              <input
+                type="password"
+                id="registerConfirmPassword"
+                placeholder="Confirm your password"
+                required
+              />
+            </div>
+
+            <div class="auth-actions">
+              <button type="submit" class="btn">
+                <i class="fas fa-user-plus"></i> Register
+              </button>
+            </div>
+          </form>
+
+          <div class="auth-toggle">
+            Already have an account? <a id="showLogin">Sign In</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Application Container -->
+    <div class="app-container" id="appContainer">
+      <header>
+        <div class="container">
+          <div class="user-menu">
+            <div class="user-avatar" id="userAvatar">U</div>
+            <div class="dropdown-menu" id="dropdownMenu">
+              <div class="dropdown-header">
+                <div class="dropdown-avatar" id="dropdownAvatar">U</div>
+                <div class="dropdown-user-info">
+                  <div class="dropdown-user-name" id="userName">User</div>
+                  <div class="dropdown-user-email" id="userEmail"></div>
+                </div>
+              </div>
+
+              <div class="dropdown-item" id="logoutBtn">
+                <i class="fas fa-sign-out-alt"></i> Logout
+              </div>
+            </div>
+          </div>
+          <h1>ESP32 Smart Monitoring</h1>
+          <p>Real-time environmental data visualization and control</p>
+        </div>
+      </header>
+
+      <div class="container">
+        <div class="dashboard">
+          <div class="card">
+            <div class="card-icon">
+              <i class="fas fa-thermometer-half"></i>
+            </div>
+            <div class="card-title">Temperature</div>
+            <div class="card-value">
+              <span id="temperature">--</span>
+              <span class="card-unit">°C</span>
+            </div>
+            <div class="chart-container">
+              <canvas id="tempChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-icon">
+              <i class="fas fa-tint"></i>
+            </div>
+            <div class="card-title">Humidity</div>
+            <div class="card-value">
+              <span id="humidity">--</span>
+              <span class="card-unit">%</span>
+            </div>
+            <div class="chart-container">
+              <canvas id="humidityChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-icon">
+              <i class="fas fa-water"></i>
+            </div>
+            <div class="card-title">Water Level</div>
+            <div class="card-value" id="waterLevel">--</div>
+            <div class="chart-container">
+              <canvas id="waterChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <i class="fas fa-door-open"></i>
+            Door Status
+          </div>
+          <div class="simple-status" id="doorStatusText">--</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <i class="fas fa-plug"></i>
+            Pump Status
+          </div>
+          <div class="simple-status" id="pumpStatusText">--</div>
+        </div>
+
+        <div class="history-panel">
+          <div class="history-header">
+            <div class="panel-title">
+              <i class="fas fa-history"></i>
+              Historical Data
+            </div>
+            <div class="time-selector">
+              <button class="time-btn active" data-hours="1">1H</button>
+              <button class="time-btn" data-hours="6">6H</button>
+              <button class="time-btn" data-hours="24">24H</button>
+              <button class="time-btn" data-hours="168">7D</button>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="historyChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyC4z2Z2sxgj2KefnEpslZ8j-cppyH21X2I",
+        authDomain: "esp32-5e4fa.firebaseapp.com",
+        databaseURL: "https://esp32-5e4fa-default-rtdb.firebaseio.com",
+        projectId: "esp32-5e4fa",
+        storageBucket: "esp32-5e4fa.firebasestorage.app",
+        messagingSenderId: "305326609780",
+        appId: "1:305326609780:web:e77ec3d224fb95a5710821",
+        measurementId: "G-0E39D4DH31",
+      };
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+      const database = firebase.database();
+      const auth = firebase.auth();
+
+      // Chart variables
+      let tempChart, humidityChart, waterChart, historyChart;
+      let tempData = [],
+        humidityData = [],
+        waterData = [];
+      const maxDataPoints = 20; // Number of points to show in real-time charts
+      let historyRange = 1; // Default to 1 hour
+
+      // Authentication State Listener
+      auth.onAuthStateChanged((user) => {
+        if (user) {
+          // User is signed in
+          showApp(user);
+        } else {
+          // User is signed out
+          showAuth();
+        }
+      });
+
+      // Show authentication forms
+      function showAuth() {
+        document.getElementById("authContainer").style.display = "flex";
+        document.getElementById("appContainer").style.display = "none";
+      }
+
+      // Show application
+      function showApp(user) {
+        document.getElementById("authContainer").style.display = "none";
+        document.getElementById("appContainer").style.display = "block";
+
+        // Set user info
+        const emailText = user.email;
+        document.getElementById("userEmail").textContent = emailText;
+        document.getElementById("userAvatar").textContent = emailText
+          .charAt(0)
+          .toUpperCase();
+        document.getElementById("dropdownAvatar").textContent = emailText
+          .charAt(0)
+          .toUpperCase();
+
+        // Set user name (displayName or first part of email)
+        const userName = user.displayName || emailText.split("@")[0];
+        document.getElementById("userName").textContent = userName;
+
+        // Initialize the app
+        initApp();
+      }
+
+      // Login Form
+      document
+        .getElementById("loginFormElement")
+        .addEventListener("submit", (e) => {
+          e.preventDefault();
+          const email = document.getElementById("loginEmail").value;
+          const password = document.getElementById("loginPassword").value;
+          const errorElement = document.getElementById("loginError");
+
+          auth
+            .signInWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+              // Signed in successfully
+              errorElement.style.display = "none";
+            })
+            .catch((error) => {
+              // Handle errors
+              errorElement.textContent = error.message;
+              errorElement.style.display = "block";
+            });
+        });
+
+      // Register Form
+      document
+        .getElementById("registerFormElement")
+        .addEventListener("submit", (e) => {
+          e.preventDefault();
+          const name = document.getElementById("registerName").value;
+          const email = document.getElementById("registerEmail").value;
+          const password = document.getElementById("registerPassword").value;
+          const confirmPassword = document.getElementById(
+            "registerConfirmPassword"
+          ).value;
+          const errorElement = document.getElementById("registerError");
+
+          // Validate passwords match
+          if (password !== confirmPassword) {
+            errorElement.textContent = "Passwords don't match";
+            errorElement.style.display = "block";
+            return;
+          }
+
+          auth
+            .createUserWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+              // Signed up successfully
+              errorElement.style.display = "none";
+
+              // Update user profile with name
+              return userCredential.user.updateProfile({
+                displayName: name,
+              });
+            })
+            .then(() => {
+              // Switch to login form after successful registration
+              document.getElementById("registerForm").classList.add("hidden");
+              document.getElementById("loginForm").classList.remove("hidden");
+              document.getElementById("loginEmail").value = email;
+              document.getElementById("loginPassword").value = password;
+            })
+            .catch((error) => {
+              // Handle errors
+              errorElement.textContent = error.message;
+              errorElement.style.display = "block";
+            });
+        });
+
+      // Toggle between login and register forms
+      document.getElementById("showRegister").addEventListener("click", () => {
+        document.getElementById("loginForm").classList.add("hidden");
+        document.getElementById("registerForm").classList.remove("hidden");
+        document.getElementById("registerError").style.display = "none";
+      });
+
+      document.getElementById("showLogin").addEventListener("click", () => {
+        document.getElementById("registerForm").classList.add("hidden");
+        document.getElementById("loginForm").classList.remove("hidden");
+        document.getElementById("loginError").style.display = "none";
+      });
+
+      // Logout button
+      const logoutBtn = document.getElementById("logoutBtn");
+      if (logoutBtn) {
+        logoutBtn.addEventListener("click", () => {
+          auth
+            .signOut()
+            .then(() => {
+              console.log("User signed out");
+            })
+            .catch((error) => {
+              console.error("Sign out error:", error);
+            });
+        });
+      }
+
+      // User menu toggle
+      document.getElementById("userAvatar").addEventListener("click", () => {
+        document.getElementById("dropdownMenu").classList.toggle("show");
+      });
+
+      // Close dropdown when clicking outside
+      window.addEventListener("click", (e) => {
+        if (!e.target.matches("#userAvatar")) {
+          const dropdown = document.getElementById("dropdownMenu");
+          if (dropdown.classList.contains("show")) {
+            dropdown.classList.remove("show");
+          }
+        }
+      });
+
+      // Time range selector for history chart
+      document.querySelectorAll(".time-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".time-btn").forEach((b) => {
+            b.classList.remove("active");
+          });
+          btn.classList.add("active");
+          historyRange = parseInt(btn.dataset.hours);
+          updateHistoryChart();
+        });
+      });
+
+      // Initialize charts
+      function initCharts() {
+        // Temperature Chart
+        const tempCtx = document.getElementById("tempChart").getContext("2d");
+        tempChart = new Chart(tempCtx, {
+          type: "line",
+          data: {
+            labels: Array(maxDataPoints).fill(""),
+            datasets: [
+              {
+                label: "Temperature (°C)",
+                data: Array(maxDataPoints).fill(null),
+                borderColor: "rgba(247, 37, 133, 0.8)",
+                backgroundColor: "rgba(247, 37, 133, 0.1)",
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 0,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false,
+              },
+            },
+            scales: {
+              x: {
+                display: false,
+              },
+              y: {
+                beginAtZero: false,
+                grid: {
+                  color: "rgba(255, 255, 255, 0.1)",
+                },
+                ticks: {
+                  color: "rgba(255, 255, 255, 0.7)",
+                },
+              },
+            },
+          },
+        });
+
+        // Humidity Chart
+        const humidityCtx = document
+          .getElementById("humidityChart")
+          .getContext("2d");
+        humidityChart = new Chart(humidityCtx, {
+          type: "line",
+          data: {
+            labels: Array(maxDataPoints).fill(""),
+            datasets: [
+              {
+                label: "Humidity (%)",
+                data: Array(maxDataPoints).fill(null),
+                borderColor: "rgba(76, 201, 240, 0.8)",
+                backgroundColor: "rgba(76, 201, 240, 0.1)",
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 0,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false,
+              },
+            },
+            scales: {
+              x: {
+                display: false,
+              },
+              y: {
+                beginAtZero: true,
+                max: 100,
+                grid: {
+                  color: "rgba(255, 255, 255, 0.1)",
+                },
+                ticks: {
+                  color: "rgba(255, 255, 255, 0.7)",
+                },
+              },
+            },
+          },
+        });
+
+        // Water Level Chart
+        const waterCtx = document.getElementById("waterChart").getContext("2d");
+        waterChart = new Chart(waterCtx, {
+          type: "line",
+          data: {
+            labels: Array(maxDataPoints).fill(""),
+            datasets: [
+              {
+                label: "Water Level",
+                data: Array(maxDataPoints).fill(null),
+                borderColor: "rgba(67, 97, 238, 0.8)",
+                backgroundColor: "rgba(67, 97, 238, 0.1)",
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 0,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false,
+              },
+            },
+            scales: {
+              x: {
+                display: false,
+              },
+              y: {
+                beginAtZero: true,
+                grid: {
+                  color: "rgba(255, 255, 255, 0.1)",
+                },
+                ticks: {
+                  color: "rgba(255, 255, 255, 0.7)",
+                },
+              },
+            },
+          },
+        });
+
+        // History Chart
+        const historyCtx = document
+          .getElementById("historyChart")
+          .getContext("2d");
+        historyChart = new Chart(historyCtx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Temperature (°C)",
+                data: [],
+                borderColor: "rgba(247, 37, 133, 0.8)",
+                backgroundColor: "rgba(247, 37, 133, 0.1)",
+                borderWidth: 2,
+                tension: 0.3,
+                yAxisID: "y",
+              },
+              {
+                label: "Humidity (%)",
+                data: [],
+                borderColor: "rgba(76, 201, 240, 0.8)",
+                backgroundColor: "rgba(76, 201, 240, 0.1)",
+                borderWidth: 2,
+                tension: 0.3,
+                yAxisID: "y1",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                position: "top",
+                labels: {
+                  color: "rgba(255, 255, 255, 0.7)",
+                },
+              },
+              tooltip: {
+                enabled: true,
+                mode: "index",
+                intersect: false,
+              },
+            },
+            scales: {
+              x: {
+                grid: {
+                  color: "rgba(255, 255, 255, 0.1)",
+                },
+                ticks: {
+                  color: "rgba(255, 255, 255, 0.7)",
+                },
+              },
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                grid: {
+                  color: "rgba(255, 255, 255, 0.1)",
+                },
+                ticks: {
+                  color: "rgba(255, 255, 255, 0.7)",
+                },
+              },
+              y1: {
+                type: "linear",
+                display: true,
+                position: "right",
+                grid: {
+                  drawOnChartArea: false,
+                  color: "rgba(255, 255, 255, 0.1)",
+                },
+                ticks: {
+                  color: "rgba(255, 255, 255, 0.7)",
+                },
+              },
+            },
+          },
+        });
+
+        // Initial history chart update
+        updateHistoryChart();
+      }
+
+      // Update history chart with data from Firebase
+      function updateHistoryChart() {
+        const endTime = Date.now();
+        const startTime = endTime - historyRange * 60 * 60 * 1000;
+
+        // In a real app, you would query Firebase for historical data in this range
+        // For this example, we'll simulate some data
+        const labels = [];
+        const tempData = [];
+        const humidityData = [];
+
+        // Generate mock data points
+        const numPoints = 20;
+        for (let i = 0; i < numPoints; i++) {
+          const time = new Date(
+            startTime + (i * (endTime - startTime)) / numPoints
+          );
+          labels.push(time.toLocaleTimeString());
+          tempData.push(20 + Math.sin(i / 2) * 5 + Math.random() * 2);
+          humidityData.push(50 + Math.cos(i / 3) * 20 + Math.random() * 5);
+        }
+
+        // Update chart
+        historyChart.data.labels = labels;
+        historyChart.data.datasets[0].data = tempData;
+        historyChart.data.datasets[1].data = humidityData;
+        historyChart.update();
+      }
+
+      // Add new data point to a chart
+      function addDataPoint(chart, newValue) {
+        if (chart.data.datasets[0].data.length >= maxDataPoints) {
+          chart.data.datasets[0].data.shift();
+        }
+        chart.data.datasets[0].data.push(newValue);
+        chart.update();
+      }
+
+      // Update status with visual indicators
+      function updateStatus(path, textElementId) {
+        firebase
+          .database()
+          .ref(path)
+          .on("value", (snapshot) => {
+            const value = snapshot.val();
+            const textElement = document.getElementById(textElementId);
+
+            textElement.textContent = value || "--";
+
+            if (value === "On" || value === "Open") {
+              textElement.className =
+                "simple-status " + (path.includes("Door") ? "open" : "on");
+            } else {
+              textElement.className =
+                "simple-status " + (path.includes("Door") ? "closed" : "off");
+            }
+          });
+      }
+
+      // Update element from Firebase
+      function updateElement(path, elementId, formatter = (val) => val) {
+        firebase
+          .database()
+          .ref(path)
+          .on("value", (snapshot) => {
+            const value = snapshot.val();
+            document.getElementById(elementId).innerHTML = formatter(value);
+
+            // Also update the corresponding chart
+            if (path.includes("Temperature") && tempChart) {
+              addDataPoint(tempChart, value);
+            } else if (path.includes("Humidity") && humidityChart) {
+              addDataPoint(humidityChart, value);
+            } else if (path.includes("Water") && waterChart) {
+              addDataPoint(waterChart, value);
+            }
+          });
+      }
+
+      // Initialize the application after login
+      function initApp() {
+        // Initialize charts
+        initCharts();
+
+        // Listen for data changes
+        updateElement("/DHT11/Temperature", "temperature", (val) =>
+          val ? `${val.toFixed(1)}°C` : "--"
+        );
+        updateElement("/DHT11/Humidity", "humidity", (val) =>
+          val ? `${val.toFixed(1)}%` : "--"
+        );
+        updateElement("/WaterSensor/Level", "waterLevel", (val) => val || "--");
+
+        // Update status
+        updateStatus("/Door/Status", "doorStatusText");
+        updateStatus("/Relay/Status", "pumpStatusText");
+      }
+    </script>
+  </body>
+</html>
